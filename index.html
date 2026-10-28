@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Fretboard: Open Chord Alternatives (No Barre)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* Custom Fretboard Scrollbar styling */
+        .fretboard-scroll::-webkit-scrollbar {
+            height: 10px;
+        }
+        .fretboard-scroll::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 5px;
+        }
+        .fretboard-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 5px;
+        }
+        .fretboard-scroll::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Fret styling details */
+        .fret-wire {
+            border-right: 3px solid #94a3b8;
+            box-shadow: 1px 0 2px rgba(0, 0, 0, 0.5);
+        }
+        .nut-wire {
+            border-right: 8px solid #f8fafc;
+            box-shadow: 2px 0 4px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Note pulse animation */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.08); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .note-active {
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-900 text-slate-100">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-amber-400 flex items-center gap-3">
+                    <i class="fa-solid font-bold fa-guitar"></i> Open Chord Up-the-Neck Explorer
+                </h1>
+                <p class="text-xs md:text-sm text-slate-400 mt-1">
+                    Discover rich, open-sounding alternative voicings high up the neck — <span class="text-emerald-400 font-semibold">100% Barre-Free!</span>
+                </p>
+            </div>
+            
+            <!-- Quick Controls -->
+            <div class="flex items-center gap-2 bg-slate-900/80 p-2 rounded-xl border border-slate-700">
+                <button id="audio-toggle" onclick="toggleAudio()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 transition flex items-center gap-2">
+                    <i class="fa-solid fa-volume-high text-amber-400" id="audio-icon"></i> Audio: ON
+                </button>
+                <button onclick="strumCurrentChord()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition shadow-md flex items-center gap-2">
+                    <i class="fa-solid fa-play"></i> Strum Voicing
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
+
+        <!-- Selector Controls Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            
+            <!-- 1. Select Base Chord -->
+            <div class="bg-slate-800/90 rounded-2xl p-4 border border-slate-700 shadow-sm flex flex-col gap-2">
+                <label class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center">1</span>
+                    Select Base Chord
+                </label>
+                <div class="grid grid-cols-4 gap-2" id="chord-buttons">
+                    <!-- Buttons dynamically populated -->
+                </div>
+            </div>
+
+            <!-- 2. Select Voicing / Variation -->
+            <div class="bg-slate-800/90 rounded-2xl p-4 border border-slate-700 shadow-sm flex flex-col gap-2">
+                <label class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 text-xs flex items-center justify-center">2</span>
+                    Select Alternative Voicing
+                </label>
+                <div class="flex flex-col gap-2" id="voicing-selector">
+                    <!-- Voicing dropdown/tabs dynamically populated -->
+                </div>
+            </div>
+
+            <!-- 3. Voicing Info Box -->
+            <div class="bg-slate-800/90 rounded-2xl p-4 border border-slate-700 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-lg font-bold text-slate-100" id="voicing-title">Voicing Details</h3>
+                        <span id="fret-span-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Frets 0 - 3
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-300 mt-2 leading-relaxed" id="voicing-desc">
+                        Select a chord to view its non-barre higher positions.
+                    </p>
+                </div>
+                
+                <!-- Chord Formula Notes -->
+                <div class="mt-3 pt-3 border-t border-slate-700/60 flex items-center justify-between text-xs">
+                    <span class="text-slate-400">Finger Pattern:</span>
+                    <span class="font-mono font-bold text-amber-300" id="fingering-display">e.g. x 3 2 0 1 0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fretboard Display Container -->
+        <div class="bg-slate-800 rounded-2xl p-4 md:p-6 border border-slate-700 shadow-xl flex flex-col gap-4">
+            
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400">
+                <div class="flex items-center gap-4">
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> Root Note</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span> Chord Tone</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-teal-500 inline-block"></span> Open Drone String</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>Display Mode:</span>
+                    <button id="toggle-names-btn" onclick="toggleNoteLabels()" class="px-2.5 py-1 rounded bg-slate-700 text-slate-200 hover:bg-slate-600 font-semibold transition">
+                        Show: Note Names
+                    </button>
+                </div>
+            </div>
+
+            <!-- Interactive Wooden Style Fretboard -->
+            <div class="fretboard-scroll overflow-x-auto pb-4 pt-2">
+                <div class="min-w-[900px] bg-gradient-to-r from-amber-950 via-stone-900 to-amber-950 rounded-xl p-4 border-2 border-amber-900/40 shadow-inner relative select-none" id="fretboard">
+                    
+                    <!-- Fret Markers Top (0 to 12) -->
+                    <div class="flex text-center text-xs font-mono font-bold text-slate-400 mb-2 border-b border-slate-700/50 pb-1">
+                        <div class="w-12 text-slate-500">Nut</div>
+                        <div class="flex-1">F1</div>
+                        <div class="flex-1">F2</div>
+                        <div class="flex-1 text-amber-400">F3 •</div>
+                        <div class="flex-1">F4</div>
+                        <div class="flex-1 text-amber-400">F5 •</div>
+                        <div class="flex-1">F6</div>
+                        <div class="flex-1 text-amber-400">F7 •</div>
+                        <div class="flex-1">F8</div>
+                        <div class="flex-1 text-amber-400">F9 •</div>
+                        <div class="flex-1">F10</div>
+                        <div class="flex-1">F11</div>
+                        <div class="flex-1 text-amber-400">F12 ••</div>
+                        <div class="flex-1">F13</div>
+                        <div class="flex-1">F14</div>
+                        <div class="flex-1 text-amber-400">F15 •</div>
+                    </div>
+
+                    <!-- 6 Strings Container -->
+                    <div class="flex flex-col gap-3 relative my-2" id="strings-container">
+                        <!-- Rendered via JS -->
+                    </div>
+
+                </div>
+            </div>
+            <p class="text-center text-xs text-slate-500 italic">Click or tap any string note to play sound individually, or use the "Strum" button.</p>
+        </div>
+
+        <!-- Chord Information & Tips Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Why No-Barre Higher Voicings? -->
+            <div class="bg-slate-800/70 rounded-2xl p-5 border border-slate-700/80">
+                <h4 class="text-base font-bold text-amber-400 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-lightbulb"></i> Why Use Higher Non-Barre Chords?
+                </h4>
+                <ul class="space-y-2 text-xs md:text-sm text-slate-300">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-circle-check text-emerald-400 mt-1 text-xs"></i>
+                        <span><strong>Open Drones:</strong> Leaving High E, B, or G strings open creates rich acoustic shimmer and chime unavailable in standard barre chords.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-circle-check text-emerald-400 mt-1 text-xs"></i>
+                        <span><strong>Hand Comfort:</strong> Ideal for players who struggle with index-finger barre pressure or want easy slide transitions.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-circle-check text-emerald-400 mt-1 text-xs"></i>
+                        <span><strong>Sonic Space:</strong> Smaller 3 & 4 string chord shapes sit cleaner in a band mix without muddying up the bass response.</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Pro Tips for Playing -->
+            <div class="bg-slate-800/70 rounded-2xl p-5 border border-slate-700/80">
+                <h4 class="text-base font-bold text-indigo-400 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-graduation-cap"></i> Practice & Technique Tips
+                </h4>
+                <ul class="space-y-2 text-xs md:text-sm text-slate-300">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-star text-amber-400 mt-1 text-xs"></i>
+                        <span><strong>Muting Unwanted Strings:</strong> Use the fleshy tip of your thumb or fretting fingers to gently rest against strings marked with an <strong>"X"</strong>.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-star text-amber-400 mt-1 text-xs"></i>
+                        <span><strong>Movable Shapes:</strong> Take shapes like the <em>E Major sliding tri-chord</em> or <em>D shape</em> up and down the neck while ringing out open E and A strings.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-star text-amber-400 mt-1 text-xs"></i>
+                        <span><strong>Voice Leading:</strong> Combine these high voicings with standard open chords for dynamic song arrangements.</span>
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-800 py-4 text-center text-xs text-slate-500">
+        Interactive Guitar Fretboard &copy; Open Chord Alternative Voicings Guide
+    </footer>
+
+    <!-- Audio Web API & Fretboard Logic Script -->
+    <script>
+        // --- CHORD DATABASE ---
+        // Frets representation: [E6, A5, D4, G3, B2, E1]
+        // -1 = Muted (x), 0 = Open string, >0 = Fret number
+        // fingerings string representation: "x-3-2-0-1-0"
+        
+        const chordData = [
+            {
+                id: 'C',
+                name: 'C Major',
+                voicings: [
+                    {
+                        title: 'Standard Open C',
+                        fretRange: 'Frets 0-3',
+                        frets: [-1, 3, 2, 0, 1, 0],
+                        fingers: ['x', '3', '2', '0', '1', '0'],
+                        intervals: ['x', 'Root', '3rd', '5th', 'Root', '3rd'],
+                        desc: 'The classic open C major shape. Solid foundation in open position.'
+                    },
+                    {
+                        title: 'C Major High Open Chime (Fret 5)',
+                        fretRange: 'Frets 0-5',
+                        frets: [-1, 3, 5, 5, 5, 0],
+                        fingers: ['x', '1', '3', '3', '3', '0'],
+                        intervals: ['x', 'Root', '5th', 'Root', '3rd', '3rd'],
+                        desc: 'Uses a simple partial grip on the D, G, B strings while leaving the High E ringing open for brilliance.'
+                    },
+                    {
+                        title: 'C Major / E (Fret 8 Triad)',
+                        fretRange: 'Frets 0-10',
+                        frets: [0, -1, 10, 9, 8, 0],
+                        fingers: ['0', 'x', '3', '2', '1', '0'],
+                        intervals: ['3rd', 'x', 'Root', '3rd', '5th', '3rd'],
+                        desc: 'Strum with open low E and high E strings framing a sweet upper C triad.'
+                    },
+                    {
+                        title: 'C Major Hendrix/D-Shape (Fret 10-12)',
+                        fretRange: 'Frets 0-12',
+                        frets: [-1, -1, 10, 12, 13, 12],
+                        fingers: ['x', 'x', '1', '2', '4', '3'],
+                        intervals: ['x', 'x', 'Root', '5th', 'Root', '3rd'],
+                        desc: 'Movable D-shape played up at fret 10 without any barre. Warm, clear upper register triad.'
+                    }
+                ]
+            },
+            {
+                id: 'A',
+                name: 'A Major',
+                voicings: [
+                    {
+                        title: 'Standard Open A',
+                        fretRange: 'Frets 0-2',
+                        frets: [-1, 0, 2, 2, 2, 0],
+                        fingers: ['x', '0', '1', '2', '3', '0'],
+                        intervals: ['x', 'Root', '5th', 'Root', '3rd', '5th'],
+                        desc: 'Standard open A chord.'
+                    },
+                    {
+                        title: 'A Major "C-Shape" Non-Barre (Fret 6-7)',
+                        fretRange: 'Frets 0-7',
+                        frets: [-1, 0, 7, 6, 5, 0],
+                        fingers: ['x', '0', '3', '2', '1', '0'],
+                        intervals: ['x', 'Root', 'A', 'C#', 'E', 'E'],
+                        desc: 'Slide the classic C shape up to fret 7 while letting open A and E strings drone freely.'
+                    },
+                    {
+                        title: 'A Major Sliding Triad (Fret 9-10)',
+                        fretRange: 'Frets 0-10',
+                        frets: [-1, 0, 11, 9, 10, 0],
+                        fingers: ['x', '0', '3', '1', '2', '0'],
+                        intervals: ['x', 'Root', '3rd', '5th', 'Root', '5th'],
+                        desc: 'A gorgeous open acoustic voicing. High E and Low A ring while middle fingers frets 9-11.'
+                    },
+                    {
+                        title: 'A Major High D-Shape (Fret 9-11)',
+                        fretRange: 'Frets 9-11',
+                        frets: [-1, -1, 7, 9, 10, 9],
+                        fingers: ['x', 'x', '1', '2', '4', '3'],
+                        intervals: ['x', 'x', 'Root', '5th', 'Root', '3rd'],
+                        desc: 'Clean 4-string voicing based on the D shape high on the neck.'
+                    }
+                ]
+            },
+            {
+                id: 'G',
+                name: 'G Major',
+                voicings: [
+                    {
+                        title: 'Standard Cowboy G',
+                        fretRange: 'Frets 0-3',
+                        frets: [3, 2, 0, 0, 0, 3],
+                        fingers: ['2', '1', '0', '0', '0', '3'],
+                        intervals: ['Root', '3rd', '5th', 'Root', '3rd', 'Root'],
+                        desc: 'Traditional 6-string open G major.'
+                    },
+                    {
+                        title: 'G Major Acoustic Drone (Fret 5)',
+                        fretRange: 'Frets 0-5',
+                        frets: [3, -1, 0, 4, 3, 3],
+                        fingers: ['1', 'x', '0', '3', '2', '2'],
+                        intervals: ['Root', 'x', '5th', '3rd', 'Root', 'Root'],
+                        desc: 'Rich open G sound with open D string adding depth.'
+                    },
+                    {
+                        title: 'G Major Up-Neck Chime (Fret 7-8)',
+                        fretRange: 'Frets 0-9',
+                        frets: [-1, 10, 9, 0, 8, 0],
+                        fingers: ['x', '3', '2', '0', '1', '0'],
+                        intervals: ['x', 'Root', '3rd', '5th', 'Root', '3rd'],
+                        desc: 'C-shape moved up to 10th fret with open G and High E string ringing freely!'
+                    },
+                    {
+                        title: 'G Major Top Triad + Open G (Fret 7)',
+                        fretRange: 'Frets 0-7',
+                        frets: [-1, -1, 5, 7, 8, 7],
+                        fingers: ['x', 'x', '1', '2', '4', '3'],
+                        intervals: ['x', 'x', '5th', 'Root', '3rd', '5th'],
+                        desc: 'Compact non-barre triad on upper strings.'
+                    }
+                ]
+            },
+            {
+                id: 'E',
+                name: 'E Major',
+                voicings: [
+                    {
+                        title: 'Standard Open E',
+                        fretRange: 'Frets 0-2',
+                        frets: [0, 2, 2, 1, 0, 0],
+                        fingers: ['0', '2', '3', '1', '0', '0'],
+                        intervals: ['Root', '5th', 'Root', '3rd', '5th', 'Root'],
+                        desc: 'Classic open position E major.'
+                    },
+                    {
+                        title: 'E Major Primal Drone (Fret 4-6)',
+                        fretRange: 'Frets 0-6',
+                        frets: [0, 7, 6, 4, 5, 0],
+                        fingers: ['0', '4', '3', '1', '2', '0'],
+                        intervals: ['Root', 'Root', '3rd', '5th', 'Root', 'Root'],
+                        desc: 'High open E voicing popular in indie and modern folk. Both outer E strings ring open.'
+                    },
+                    {
+                        title: 'E Major Sliding D-Shape (Fret 2-4)',
+                        fretRange: 'Frets 0-4',
+                        frets: [0, 0, 2, 4, 5, 4],
+                        fingers: ['0', '0', '1', '2', '4', '3'],
+                        intervals: ['Root', '5th', 'E', 'B', 'E', 'G#'],
+                        desc: 'Slide the D shape up to fret 4 while strumming open E and A strings.'
+                    },
+                    {
+                        title: 'E Major Upper Ring (Fret 9)',
+                        fretRange: 'Frets 0-9',
+                        frets: [0, -1, 9, 9, 9, 0],
+                        fingers: ['0', 'x', '2', '3', '4', '0'],
+                        intervals: ['Root', 'x', '3rd', '5th', 'Root', 'Root'],
+                        desc: 'Easy 3-finger barre-free grip at fret 9 with open E bass and treble strings.'
+                    }
+                ]
+            },
+            {
+                id: 'D',
+                name: 'D Major',
+                voicings: [
+                    {
+                        title: 'Standard Open D',
+                        fretRange: 'Frets 0-3',
+                        frets: [-1, -1, 0, 2, 3, 2],
+                        fingers: ['x', 'x', '0', '1', '3', '2'],
+                        intervals: ['x', 'x', 'Root', '5th', 'Root', '3rd'],
+                        desc: 'Standard D major chord.'
+                    },
+                    {
+                        title: 'D Major Open Drone / F-Shape (Fret 7)',
+                        fretRange: 'Frets 0-7',
+                        frets: [-1, 0, 0, 7, 7, 5],
+                        fingers: ['x', '0', '0', '2', '3', '1'],
+                        intervals: ['x', 'A', 'D', 'A', 'D', 'F#'],
+                        desc: 'Strum with open A and D strings while fretting upper triad.'
+                    },
+                    {
+                        title: 'D Major High C-Shape (Fret 12-14)',
+                        fretRange: 'Frets 0-14',
+                        frets: [-1, 0, 12, 11, 10, 0],
+                        fingers: ['x', '0', '3', '2', '1', '0'],
+                        intervals: ['x', '5th', 'Root', '3rd', '5th', '9th/E'],
+                        desc: 'High C-shape moved to fret 12, with open A string providing rich bass.'
+                    }
+                ]
+            },
+            {
+                id: 'Am',
+                name: 'A Minor',
+                voicings: [
+                    {
+                        title: 'Standard Open Am',
+                        fretRange: 'Frets 0-2',
+                        frets: [-1, 0, 2, 2, 1, 0],
+                        fingers: ['x', '0', '2', '3', '1', '0'],
+                        intervals: ['x', 'Root', '5th', 'Root', 'b3rd', '5th'],
+                        desc: 'Standard open A minor chord.'
+                    },
+                    {
+                        title: 'Am High Chime (Fret 5-7)',
+                        fretRange: 'Frets 0-7',
+                        frets: [-1, 0, 7, 5, 5, 0],
+                        fingers: ['x', '0', '3', '1', '1', '0'],
+                        intervals: ['x', 'Root', 'A', 'C', 'E', 'E'],
+                        desc: 'Mini 2-finger shape on D and G strings leaving A and High E strings open.'
+                    },
+                    {
+                        title: 'Am Acoustic Mood (Fret 9-10)',
+                        fretRange: 'Frets 0-10',
+                        frets: [-1, 0, 10, 9, 10, 0],
+                        fingers: ['x', '0', '2', '1', '3', '0'],
+                        intervals: ['x', 'Root', 'b3rd', '5th', 'Root', '5th'],
+                        desc: 'Evocative up-the-neck minor chord with open ring strings.'
+                    }
+                ]
+            },
+            {
+                id: 'Em',
+                name: 'E Minor',
+                voicings: [
+                    {
+                        title: 'Standard Open Em',
+                        fretRange: 'Frets 0-2',
+                        frets: [0, 2, 2, 0, 0, 0],
+                        fingers: ['0', '2', '3', '0', '0', '0'],
+                        intervals: ['Root', '5th', 'Root', 'b3rd', '5th', 'Root'],
+                        desc: 'Standard open E minor.'
+                    },
+                    {
+                        title: 'Em Upper Shimmer (Fret 7-9)',
+                        fretRange: 'Frets 0-9',
+                        frets: [0, 7, 9, 9, 8, 0],
+                        fingers: ['0', '1', '3', '4', '2', '0'],
+                        intervals: ['Root', 'Root', '5th', 'Root', 'b3rd', 'Root'],
+                        desc: 'Full 6-string rich voicing with open low and high E strings.'
+                    },
+                    {
+                        title: 'Em Higher Open Triad (Fret 12)',
+                        fretRange: 'Frets 0-12',
+                        frets: [0, -1, 14, 12, 12, 0],
+                        fingers: ['0', 'x', '3', '1', '1', '0'],
+                        intervals: ['Root', 'x', 'b3rd', '5th', 'Root', 'Root'],
+                        desc: 'High octaved minor chord ringing beautifully with double E open strings.'
+                    }
+                ]
+            },
+            {
+                id: 'Dm',
+                name: 'D Minor',
+                voicings: [
+                    {
+                        title: 'Standard Open Dm',
+                        fretRange: 'Frets 0-3',
+                        frets: [-1, -1, 0, 2, 3, 1],
+                        fingers: ['x', 'x', '0', '2', '3', '1'],
+                        intervals: ['x', 'x', 'Root', '5th', 'Root', 'b3rd'],
+                        desc: 'Standard open D minor chord.'
+                    },
+                    {
+                        title: 'Dm High Open A Drones (Fret 5-7)',
+                        fretRange: 'Frets 0-7',
+                        frets: [-1, 0, 0, 7, 6, 5],
+                        fingers: ['x', '0', '0', '3', '2', '1'],
+                        intervals: ['x', 'A', 'D', 'A', 'F', 'D'],
+                        desc: 'No barre needed. Simple 3-finger staircase shape with open A and D string resonance.'
+                    },
+                    {
+                        title: 'Dm Upper Triad (Fret 9-10)',
+                        fretRange: 'Frets 0-10',
+                        frets: [-1, -1, 0, 10, 10, 10],
+                        fingers: ['x', 'x', '0', '1', '1', '1'],
+                        intervals: ['x', 'x', 'Root', 'F', 'A', 'D'],
+                        desc: 'Clean 3-note mini flattening on top strings using open D bass.'
+                    }
+                ]
+            }
+        ];
+
+        // String definitions (E standard tuning)
+        // String index 0 = Low E (E2), 1 = A2, 2 = D3, 3 = G3, 4 = B3, 5 = High E (E4)
+        const stringNames = ['E', 'A', 'D', 'G', 'B', 'E'];
+        const stringBaseNotes = [
+            { note: 'E', pitch: 40 }, // E2
+            { note: 'A', pitch: 45 }, // A2
+            { note: 'D', pitch: 50 }, // D3
+            { note: 'G', pitch: 55 }, // G3
+            { note: 'B', pitch: 59 }, // B3
+            { note: 'E', pitch: 64 }  // E4
+        ];
+
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+        // App State
+        let selectedChordIndex = 0;
+        let selectedVoicingIndex = 0;
+        let showNoteNames = true;
+        let audioEnabled = true;
+
+        // Web Audio API Setup
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('audio-toggle');
+            const icon = document.getElementById('audio-icon');
+            if (audioEnabled) {
+                btn.classList.replace('bg-slate-800', 'bg-slate-700');
+                btn.innerHTML = `<i class="fa-solid fa-volume-high text-amber-400" id="audio-icon"></i> Audio: ON`;
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-volume-xmark text-slate-400" id="audio-icon"></i> Audio: OFF`;
+            }
+        }
+
+        // Synthesize realistic-ish guitar string sound using Web Audio API
+        function playPluckedString(frequency, duration = 1.8, delay = 0) {
+            if (!audioEnabled) return;
+            initAudio();
+
+            setTimeout(() => {
+                const now = audioCtx.currentTime;
+                
+                // Oscillator for base fundamental frequency
+                const osc = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                
+                // Pluck filter envelope
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(frequency * 4, now);
+                filter.frequency.exponentialRampToValueAtTime(frequency * 0.8, now + duration);
+
+                // Main gain envelope
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.3, now + 0.015); // Fast attack
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + duration); // Natural decay
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(frequency, now);
+
+                osc2.type = 'sawtooth';
+                osc2.frequency.setValueAtTime(frequency * 1.001, now); // slight detune
+
+                const osc2Gain = audioCtx.createGain();
+                osc2Gain.gain.value = 0.2;
+
+                osc2.connect(osc2Gain);
+                osc2Gain.connect(filter);
+                osc.connect(filter);
+
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc2.start(now);
+                osc.stop(now + duration);
+                osc2.stop(now + duration);
+            }, delay * 1000);
+        }
+
+        function midiToFreq(midi) {
+            return 440 * Math.pow(2, (midi - 69) / 12);
+        }
+
+        function getNoteNameFromPitch(midi) {
+            return noteNames[midi % 12];
+        }
+
+        // --- APP LOGIC & RENDER ---
+
+        function initApp() {
+            renderChordButtons();
+            loadChord(0);
+        }
+
+        function renderChordButtons() {
+            const container = document.getElementById('chord-buttons');
+            container.innerHTML = '';
+            chordData.forEach((chord, index) => {
+                const btn = document.createElement('button');
+                btn.className = `py-2 px-3 rounded-xl font-bold text-sm transition flex flex-col items-center justify-center border ${
+                    index === selectedChordIndex
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                        : 'bg-slate-700/60 hover:bg-slate-700 text-slate-200 border-slate-600'
+                }`;
+                btn.innerText = chord.id;
+                btn.onclick = () => {
+                    selectedChordIndex = index;
+                    selectedVoicingIndex = 0;
+                    renderChordButtons();
+                    loadChord(selectedChordIndex);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function loadChord(chordIndex) {
+            const chord = chordData[chordIndex];
+            const voicingSelector = document.getElementById('voicing-selector');
+            voicingSelector.innerHTML = '';
+
+            chord.voicings.forEach((v, vIndex) => {
+                const item = document.createElement('button');
+                item.className = `w-full text-left p-2.5 rounded-xl border text-xs font-semibold transition flex items-center justify-between ${
+                    vIndex === selectedVoicingIndex
+                        ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200'
+                        : 'bg-slate-900/40 border-slate-700/60 text-slate-400 hover:bg-slate-700/40'
+                }`;
+                item.innerHTML = `
+                    <span class="truncate">${v.title}</span>
+                    <i class="fa-solid ${vIndex === selectedVoicingIndex ? 'fa-circle-dot text-indigo-400' : 'fa-circle text-slate-600'} text-xs"></i>
+                `;
+                item.onclick = () => {
+                    selectedVoicingIndex = vIndex;
+                    loadChord(chordIndex);
+                };
+                voicingSelector.appendChild(item);
+            });
+
+            const activeVoicing = chord.voicings[selectedVoicingIndex];
+
+            // Update Details
+            document.getElementById('voicing-title').innerText = `${chord.name} - ${activeVoicing.title}`;
+            document.getElementById('voicing-desc').innerText = activeVoicing.desc;
+            document.getElementById('fret-span-badge').innerText = activeVoicing.fretRange;
+            
+            // Format fingering text
+            const fingerText = activeVoicing.frets.map(f => f === -1 ? 'X' : f).join(' ');
+            document.getElementById('fingering-display').innerText = `[Low E to High E]: ${fingerText}`;
+
+            renderFretboard(activeVoicing);
+        }
+
+        function toggleNoteLabels() {
+            showNoteNames = !showNoteNames;
+            document.getElementById('toggle-names-btn').innerText = showNoteNames ? 'Show: Note Names' : 'Show: Intervals';
+            const chord = chordData[selectedChordIndex];
+            renderFretboard(chord.voicings[selectedVoicingIndex]);
+        }
+
+        function renderFretboard(voicing) {
+            const container = document.getElementById('strings-container');
+            container.innerHTML = '';
+
+            // 6 Strings (from High E down to Low E for standard UI display: index 5 to 0)
+            const displayOrder = [5, 4, 3, 2, 1, 0];
+
+            displayOrder.forEach((stringIdx) => {
+                const fretVal = voicing.frets[stringIdx];
+                const fingerVal = voicing.fingers[stringIdx];
+                const intervalVal = voicing.intervals[stringIdx];
+                const basePitch = stringBaseNotes[stringIdx].pitch;
+
+                const stringRow = document.createElement('div');
+                stringRow.className = 'flex items-center h-10 relative';
+
+                // String Nut Status / Indicator (Leftmost column)
+                const nutBox = document.createElement('div');
+                nutBox.className = 'w-12 flex items-center justify-center font-bold text-xs z-10';
+                
+                if (fretVal === -1) {
+                    nutBox.innerHTML = `<span class="text-rose-400 font-extrabold text-sm">X</span>`;
+                } else if (fretVal === 0) {
+                    nutBox.innerHTML = `<span class="w-6 h-6 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/50 flex items-center justify-center text-[10px] font-bold shadow">0</span>`;
+                } else {
+                    nutBox.innerHTML = `<span class="text-slate-500 text-[11px] font-mono">${stringNames[stringIdx]}</span>`;
+                }
+                stringRow.appendChild(nutBox);
+
+                // Horizontal String Line graphic (thickness scales with bass strings)
+                const stringLineHeight = Math.max(1.5, 4 - stringIdx * 0.5);
+                const stringLine = document.createElement('div');
+                stringLine.className = 'absolute left-12 right-0 bg-gradient-to-r from-slate-400 via-stone-400 to-slate-400 z-0 pointer-events-none shadow-sm';
+                stringLine.style.height = `${stringLineHeight}px`;
+                stringRow.appendChild(stringLine);
+
+                // Frets 1 to 15
+                for (let fret = 1; fret <= 15; fret++) {
+                    const fretCell = document.createElement('div');
+                    fretCell.className = `flex-1 h-full flex items-center justify-center relative cursor-pointer group z-10 ${
+                        fret === 1 ? 'nut-wire' : 'fret-wire'
+                    }`;
+
+                    // Click sound trigger for individual note
+                    const currentPitch = basePitch + fret;
+                    const freq = midiToFreq(currentPitch);
+                    
+                    fretCell.onclick = () => {
+                        playPluckedString(freq, 1.5, 0);
+                    };
+
+                    // Check if this fret has an active chord note
+                    if (fretVal === fret) {
+                        const noteMarker = document.createElement('div');
+                        
+                        // Check if root note (simplistic check for demo color coding)
+                        const isRoot = intervalVal.toLowerCase().includes('root');
+                        
+                        noteMarker.className = `w-7 h-7 rounded-full flex flex-col items-center justify-center text-[10px] font-bold shadow-lg transition-transform transform group-hover:scale-110 z-20 note-active ${
+                            isRoot 
+                                ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 border-2 border-amber-200' 
+                                : 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white border-2 border-indigo-300'
+                        }`;
+
+                        const noteText = showNoteNames ? getNoteNameFromPitch(basePitch + fret) : intervalVal;
+                        noteMarker.innerHTML = `<span>${noteText}</span>`;
+                        fretCell.appendChild(noteMarker);
+                    } else if (fretVal === 0 && fret === 1) {
+                        // Allow clicking nut area to hear open string
+                        nutBox.onclick = () => playPluckedString(midiToFreq(basePitch), 1.5, 0);
+                    }
+
+                    stringRow.appendChild(fretCell);
+                }
+
+                container.appendChild(stringRow);
+            });
+        }
+
+        function strumCurrentChord() {
+            const chord = chordData[selectedChordIndex];
+            const voicing = chord.voicings[selectedVoicingIndex];
+
+            // Strum strings with slight arpeggio delay
+            let delay = 0;
+            for (let i = 0; i < 6; i++) {
+                const fret = voicing.frets[i];
+                if (fret !== -1) {
+                    const pitch = stringBaseNotes[i].pitch + fret;
+                    const freq = midiToFreq(pitch);
+                    playPluckedString(freq, 2.2, delay);
+                    delay += 0.06; // 60ms delay between string plucks
+                }
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            initApp();
+        };
+    </script>
+</body>
+</html>
+```
